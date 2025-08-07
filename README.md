@@ -35,13 +35,10 @@ A complete chat room solution with both **socket-based** (terminal) and **web-ba
 ## 📁 Project Structure
 
 ```
-chat-room-project/
-├── server.py          # Socket-based chat server
-├── client.py          # Socket-based chat client  
+chat-room-project/  
 ├── web_chat_app.py    # Web-based chat application
-├── templates/         # HTML templates for web chat
-│   ├── login.html     # Login page
-│   └── chat.html      # Chat interface
+│── login.html         # Login page
+│── chat.html          # Chat interface
 └── README.md          # This file
 ```
 
@@ -136,4 +133,5 @@ The web chat can be deployed online using:
 4. **Deploy online** if you want internet access
 
 Both applications provide real-time chat functionality - choose based on your needs! 🚀 
+
 
