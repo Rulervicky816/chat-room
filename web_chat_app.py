@@ -12,11 +12,9 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-change-this')
 socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Store active users and their rooms
 active_users = {}
 chat_rooms = {
     'general': {
@@ -104,14 +102,12 @@ def handle_connect():
             
             logger.info(f"User {username} connected to room {room}")
             
-            # Send user joined message
             emit('user_joined', {
                 'username': username,
                 'timestamp': datetime.now().strftime('%H:%M'),
                 'message': f'{username} joined the chat'
             }, room=room)
             
-            # Send current users list
             emit('users_list', {
                 'users': list(chat_rooms[room]['users'])
             }, room=room)
@@ -135,14 +131,12 @@ def handle_disconnect():
             
             logger.info(f"User {username} disconnected from room {room}")
             
-            # Send user left message
             emit('user_left', {
                 'username': username,
                 'timestamp': datetime.now().strftime('%H:%M'),
                 'message': f'{username} left the chat'
             }, room=room)
             
-            # Update users list
             emit('users_list', {
                 'users': list(chat_rooms[room]['users'])
             }, room=room)
@@ -162,8 +156,7 @@ def handle_message(data):
         
         if not message:
             return
-        
-        # Create message object
+
         message_obj = {
             'username': username,
             'message': message,
@@ -171,16 +164,13 @@ def handle_message(data):
             'type': 'user_message'
         }
         
-        # Store message in room history
         chat_rooms[room]['messages'].append(message_obj)
         
-        # Keep only last 100 messages
         if len(chat_rooms[room]['messages']) > 100:
             chat_rooms[room]['messages'] = chat_rooms[room]['messages'][-100:]
         
         logger.info(f"Message from {username} in room {room}: {message[:50]}...")
         
-        # Broadcast message to room
         emit('new_message', message_obj, room=room)
     except Exception as e:
         logger.error(f"Error in handle_message: {e}")
@@ -195,14 +185,12 @@ def handle_join_room(data):
         username = session['username']
         new_room = data.get('room', 'general')
         
-        # Leave current room
         current_room = active_users.get(username, {}).get('room', 'general')
         if current_room != new_room:
             leave_room(current_room)
             if username in chat_rooms[current_room]['users']:
                 chat_rooms[current_room]['users'].remove(username)
         
-        # Join new room
         if new_room not in chat_rooms:
             chat_rooms[new_room] = {
                 'name': new_room.title(),
@@ -219,7 +207,6 @@ def handle_join_room(data):
         
         logger.info(f"User {username} joined room {new_room}")
         
-        # Send room info
         emit('room_changed', {
             'room': new_room,
             'room_name': chat_rooms[new_room]['name'],
@@ -241,3 +228,4 @@ if __name__ == '__main__':
     except Exception as e:
         logger.error(f"Failed to start server: {e}")
         print(f"❌ Error starting server: {e}") 
+
