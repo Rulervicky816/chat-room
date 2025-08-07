@@ -61,21 +61,6 @@ chat-room-project/
 3. Enter username and join any room
 4. Chat with other users in real-time!
 
-## 💻 Socket-based Chat Features
-
-- ✅ **Lightweight and fast** - minimal resource usage
-- ✅ **Terminal-based** - works in any terminal
-- ✅ **Real-time messaging** using TCP sockets
-- ✅ **Multiple clients** can connect simultaneously
-- ✅ **Username support** - each user has a unique name
-- ✅ **Graceful disconnection** - clean shutdown
-
-### **Socket Chat Usage:**
-1. Start server: `py server.py`
-2. Open multiple terminals
-3. Run clients: `py client.py`
-4. Enter usernames and start chatting!
-
 ## 🔧 Installation
 
 ### **Requirements:**
@@ -104,23 +89,6 @@ py web_chat_app.py
 # Tab 3: http://localhost:5000 (username: Charlie)
 ```
 
-### **Socket Chat Example:**
-```bash
-# Terminal 1 - Start server
-py server.py
-
-# Terminal 2 - Client 1
-py client.py
-# Enter username: Alice
-
-# Terminal 3 - Client 2  
-py client.py
-# Enter username: Bob
-
-# Terminal 4 - Client 3
-py client.py
-# Enter username: Charlie
-```
 
 ## 🌍 Deployment
 
@@ -129,12 +97,6 @@ The web chat can be deployed online using:
 - **Railway** (recommended - free & easy)
 - **Heroku**
 - **DigitalOcean/AWS/VPS**
-
-### **Socket Chat Deployment:**
-For online access, you need:
-- A server with public IP
-- Port forwarding (default: 55555)
-- Update client.py with server IP
 
 ## 🔒 Security Notes
 
@@ -148,11 +110,6 @@ For online access, you need:
 - **"Module not found"**: Run `py -m pip install flask flask-socketio`
 - **"Port already in use"**: Change port in web_chat_app.py
 - **WebSocket errors**: Check browser console (F12)
-
-### **Socket Chat Issues:**
-- **"Connection refused"**: Make sure server is running first
-- **"Address already in use"**: Wait or change port in server.py
-- **Messages not appearing**: Check all clients are connected
 
 ## 📱 Comparison
 
@@ -179,3 +136,4 @@ For online access, you need:
 4. **Deploy online** if you want internet access
 
 Both applications provide real-time chat functionality - choose based on your needs! 🚀 
+
