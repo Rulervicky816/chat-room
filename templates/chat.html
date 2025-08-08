@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script src="https://js.puter.com/v2/"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Web Chat - {{ room.title() }}</title>
@@ -403,14 +404,48 @@
         // 🔼 STEP 2 code ends here 🔼
         
         // Send message
-        messageForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const message = messageInput.value.trim();
-            if (message) {
-                socket.emit('send_message', { message: message });
-                messageInput.value = '';
+        messageForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const message = messageInput.value.trim();
+    if (!message) return;
+
+    // Send the user's message to the server
+    socket.emit('send_message', { message: message });
+
+    // Check if it's meant for SmartBot
+    if (message.toLowerCase().startsWith('@smartbot')) {
+        const prompt = message.replace(/@smartbot/i, '').trim();
+        if (prompt) {
+            // Show that SmartBot is "thinking"
+            addSystemMessage("🤖 SmartBot is typing...");
+
+            try {
+                // Call Puter AI API
+                const response = await puter.ai.chat(prompt, { model: "gpt-4o" });
+                
+                // Remove typing indicator
+                const systemMessages = document.querySelectorAll('.system-message');
+                if (systemMessages.length) {
+                    systemMessages[systemMessages.length - 1].remove();
+                }
+
+                // Send SmartBot's reply into the chat as a bot message
+                socket.emit('send_message', { 
+                    message: response, 
+                    username: 'SmartBot' 
+                });
+
+            } catch (error) {
+                console.error("SmartBot error:", error);
+                addSystemMessage("⚠️ SmartBot encountered an error.");
             }
-        });
+        }
+    }
+
+    // Clear input
+    messageInput.value = '';
+});
+
         
         // Enter key to send
         messageInput.addEventListener('keypress', (e) => {
@@ -455,20 +490,24 @@
         
         // Helper functions
         function addMessage(data) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${data.username === '{{ username }}' ? 'own' : ''}`;
-            
-            messageDiv.innerHTML = `
-                <div class="message-content">
-                    <div class="message-username">${data.username}</div>
-                    <div class="message-text">${escapeHtml(data.message)}</div>
-                    <div class="message-time">${data.timestamp}</div>
-                </div>
-            `;
-            
-            messagesContainer.appendChild(messageDiv);
-            scrollToBottom();
-        }
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${data.username === '{{ username }}' ? 'own' : ''}`;
+    
+    // Show robot emoji for SmartBot
+    const displayName = data.username === 'SmartBot' ? '🤖 SmartBot' : data.username;
+
+    messageDiv.innerHTML = `
+        <div class="message-content">
+            <div class="message-username">${displayName}</div>
+            <div class="message-text">${escapeHtml(data.message)}</div>
+            <div class="message-time">${data.timestamp}</div>
+        </div>
+    `;
+    
+    messagesContainer.appendChild(messageDiv);
+    scrollToBottom();
+}
+
         
         function addSystemMessage(message) {
             const messageDiv = document.createElement('div');
