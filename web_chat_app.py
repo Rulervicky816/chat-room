@@ -12,13 +12,16 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-change-this')
 socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
 
+# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Store active users and their rooms
 active_users = {}
 chat_rooms = {
     'general': {
         'name': 'General Chat',
+        'password': None,  # None means public
         'users': set(),
         'messages': []
     }
@@ -91,6 +94,32 @@ def chat():
         logger.error(f"Error in chat route: {e}")
         return f"Error: {str(e)}", 500
 
+@app.route('/create_room', methods=['POST'])
+def create_room():
+    try:
+        room_name = request.form.get('room', '').strip()
+        password = request.form.get('password', '').strip() or None
+
+        if not room_name:
+            return jsonify({'success': False, 'error': 'Room name is required'}), 400
+
+        if room_name in chat_rooms:
+            return jsonify({'success': False, 'error': 'Room already exists'}), 400
+
+        chat_rooms[room_name] = {
+            'name': room_name,
+            'password': password,
+            'users': set(),
+            'messages': []
+        }
+
+        logger.info(f"Room '{room_name}' created (password protected: {bool(password)})")
+        return jsonify({'success': True, 'room': room_name, 'password_protected': bool(password)})
+    except Exception as e:
+        logger.error(f"Error creating room: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @socketio.on('connect')
 def handle_connect():
     try:
@@ -102,12 +131,14 @@ def handle_connect():
             
             logger.info(f"User {username} connected to room {room}")
             
+            # Send user joined message
             emit('user_joined', {
                 'username': username,
                 'timestamp': datetime.now().strftime('%H:%M'),
                 'message': f'{username} joined the chat'
             }, room=room)
             
+            # Send current users list
             emit('users_list', {
                 'users': list(chat_rooms[room]['users'])
             }, room=room)
@@ -131,12 +162,14 @@ def handle_disconnect():
             
             logger.info(f"User {username} disconnected from room {room}")
             
+            # Send user left message
             emit('user_left', {
                 'username': username,
                 'timestamp': datetime.now().strftime('%H:%M'),
                 'message': f'{username} left the chat'
             }, room=room)
             
+            # Update users list
             emit('users_list', {
                 'users': list(chat_rooms[room]['users'])
             }, room=room)
@@ -156,7 +189,8 @@ def handle_message(data):
         
         if not message:
             return
-
+        
+        # Create message object
         message_obj = {
             'username': username,
             'message': message,
@@ -164,13 +198,16 @@ def handle_message(data):
             'type': 'user_message'
         }
         
+        # Store message in room history
         chat_rooms[room]['messages'].append(message_obj)
         
+        # Keep only last 100 messages
         if len(chat_rooms[room]['messages']) > 100:
             chat_rooms[room]['messages'] = chat_rooms[room]['messages'][-100:]
         
         logger.info(f"Message from {username} in room {room}: {message[:50]}...")
         
+        # Broadcast message to room
         emit('new_message', message_obj, room=room)
     except Exception as e:
         logger.error(f"Error in handle_message: {e}")
@@ -181,40 +218,68 @@ def handle_join_room(data):
         if 'username' not in session:
             logger.warning("Room join attempt without username in session")
             return
-        
+
         username = session['username']
         new_room = data.get('room', 'general')
-        
+        password = data.get('password', '').strip()
+
+        # Check if room exists
+        if new_room in chat_rooms:
+            # If room has a password, check it
+            room_password = chat_rooms[new_room].get('password')
+            if room_password and room_password != password:
+                emit('room_error', {'error': 'Invalid password'})
+                return
+        else:
+            # Create new private room if password given
+            chat_rooms[new_room] = {
+                'name': new_room.title(),
+                'users': set(),
+                'messages': [],
+                'password': password if password else None
+            }
+
+        # Leave current room
         current_room = active_users.get(username, {}).get('room', 'general')
         if current_room != new_room:
             leave_room(current_room)
             if username in chat_rooms[current_room]['users']:
                 chat_rooms[current_room]['users'].remove(username)
-        
-        if new_room not in chat_rooms:
-            chat_rooms[new_room] = {
-                'name': new_room.title(),
-                'users': set(),
-                'messages': []
-            }
-        
+
+        # Join new room
         join_room(new_room)
         chat_rooms[new_room]['users'].add(username)
         active_users[username] = {
             'id': session['user_id'],
             'room': new_room
         }
-        
+
         logger.info(f"User {username} joined room {new_room}")
-        
+
+        # Send room info back to user
         emit('room_changed', {
             'room': new_room,
             'room_name': chat_rooms[new_room]['name'],
             'users': list(chat_rooms[new_room]['users']),
             'messages': chat_rooms[new_room]['messages'][-50:]  # Last 50 messages
-        })
+        }, room=request.sid)
+
+        # Notify others in the room
+        emit('user_joined', {
+            'username': username,
+            'timestamp': datetime.now().strftime('%H:%M'),
+            'message': f'{username} joined the chat'
+        }, room=new_room, include_self=False)
+
+        # Update all users list in room
+        emit('users_list', {
+            'users': list(chat_rooms[new_room]['users'])
+        }, room=new_room)
+
     except Exception as e:
         logger.error(f"Error in handle_join_room: {e}")
+        emit('room_error', {'error': 'An error occurred while joining room'})
+
 
 if __name__ == '__main__':
     print("🚀 Starting Web Chat Application...")
@@ -228,4 +293,3 @@ if __name__ == '__main__':
     except Exception as e:
         logger.error(f"Failed to start server: {e}")
         print(f"❌ Error starting server: {e}") 
-
