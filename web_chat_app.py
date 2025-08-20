@@ -3,6 +3,7 @@
 
 from flask import Flask, render_template, request, session, redirect, url_for, jsonify
 from flask_socketio import SocketIO, emit, join_room, leave_room
+from detoxify import Detoxify
 import os
 from datetime import datetime
 import uuid
@@ -15,6 +16,9 @@ socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+# Load toxicity model once (to avoid reloading for every message)
+toxicity_model = Detoxify('original')
+
 
 # Store active users and their rooms
 active_users = {}
@@ -190,6 +194,21 @@ def handle_message(data):
         if not message:
             return
         
+        # 🔍 Run toxicity check
+        results = toxicity_model.predict(message)
+        toxic_score = results.get("toxicity", 0)
+
+        if toxic_score > 0.7:  # adjust threshold as needed
+            logger.info(f"Blocked toxic message from {username}: {message}")
+            emit('new_message', {
+                'username': "SYSTEM",
+                'message': f"⚠️ Message from {username} was blocked (toxic content detected).",
+                'timestamp': datetime.now().strftime('%H:%M'),
+                'type': 'system_alert'
+            }, room=room)
+        return
+
+
         # Create message object
         message_obj = {
             'username': username,
